@@ -1,0 +1,15 @@
+environment:
+  AUTH_KEY: "${AUTH_KEY}"
+packages:
+  - name: cs
+    functions:
+      - name: cy
+        runtime: python:3.9
+        limits:
+          timeout: 200
+          memory: 128
+      - name: hc
+        runtime: python:3.9
+        limits:
+          timeout: 200
+          memory: 128
