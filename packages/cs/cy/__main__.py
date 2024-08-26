@@ -19,7 +19,7 @@ def main(event, context):
         if item['arxiv_announce_type'] in ('replace', 'replace-cross'):
             continue
 
-        feed.add_entry(convert_item(item))
+        feed.add_entry(convert_item(item, parsed_feed['channel']['published']))
 
     return {
           'body': feed.rss_str(pretty=True).decode(),

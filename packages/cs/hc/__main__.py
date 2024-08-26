@@ -23,7 +23,7 @@ def main(event, context):
         if 'cs.CY' in set(map(operator.itemgetter('term'), item['tags'])):
             continue
 
-        feed.add_entry(convert_item(item))
+        feed.add_entry(convert_item(item, parsed_feed['channel']['published']))
 
     return {
           'body': feed.rss_str(pretty=True).decode(),

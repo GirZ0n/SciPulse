@@ -20,14 +20,14 @@ def copy_channel_metadata(original: FeedParserDict, new: FeedGenerator):
     new.pubDate(original['channel']['published'])
 
 
-def convert_item(original: FeedParserDict) -> FeedEntry:
+def convert_item(original: FeedParserDict, date: str) -> FeedEntry:
     entry = FeedEntry()
 
     entry.title(original['title'])
     entry.link(href=original['link'])
     entry.description('\n')
     entry.guid(original['guid'])
-    entry.pubDate(original['channel']['published'])
+    entry.pubDate(date)
 
     entry.category(
         [
