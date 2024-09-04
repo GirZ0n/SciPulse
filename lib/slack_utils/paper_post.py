@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from enum import Enum
+from textwrap import shorten
 from typing import Optional, List, Dict
 
 from dataclasses_json import dataclass_json
-from html2text import html2text as h2t
-
 from feedparser import FeedParserDict
+from html2text import html2text as h2t
 
 
 class PaperReviewState(Enum):
@@ -68,9 +68,11 @@ class PaperPost:
 
     def to_blocks(self) -> List[Dict]:
         base = [
-            {"type": "header", "text": {"type": "plain_text", "text": f"{self.title}"}},
+            # Shorten the title as the maximum length of a header is 150
+            {"type": "header", "text": {"type": "plain_text", "text": f"{shorten(self.title, 150)}"}},
             {"type": "section", "text": {"type": "mrkdwn", "text": f"*Link:* {self.link}"}},
-            {"type": "section", "text": {"type": "mrkdwn", "text": f"*Abstract:*\n{self.abstract}"}},
+            # Shorten the abstract as the maximum length of a section is 3000
+            {"type": "section", "text": {"type": "mrkdwn", "text": f"*Abstract:*\n{shorten(self.abstract, 3000)}"}},
         ]
 
         interactive_elements = []
