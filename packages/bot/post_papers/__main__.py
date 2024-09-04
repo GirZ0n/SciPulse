@@ -8,8 +8,8 @@ import feedparser
 from feedparser import FeedParserDict
 from slack_sdk import WebClient
 
-from slack_utils.wrappers import find_channels_with_app, send_message
-from slack_utils.paper_post import PaperPost
+from wrappers import find_channels_with_app, send_message
+from paper_post import PaperPost
 
 
 def fetch_cs_cy_papers() -> List[FeedParserDict]:

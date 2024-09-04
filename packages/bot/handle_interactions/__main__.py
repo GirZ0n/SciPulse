@@ -4,8 +4,8 @@ import os
 
 from slack_sdk import WebClient
 
-from slack_utils.paper_post import PaperPost
-from slack_utils.wrappers import update_message
+from paper_post import PaperPost
+from wrappers import update_message
 from security_utils import check_secret_key
 
 logger = logging.getLogger(__name__)
