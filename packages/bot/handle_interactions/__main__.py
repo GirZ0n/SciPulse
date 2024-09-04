@@ -18,8 +18,8 @@ def main(event, context):
 
     logging.info('Receiving interaction action')
 
-    payload = json.loads(event['payload'][0])
-    logging.debug(f'Payload: {event["payload"][0]}')
+    payload = json.loads(event['payload'])
+    logging.debug(f'Payload: {event["payload"]}')
 
     channel = payload['container']['channel_id']
     logging.debug(f'Channel: {channel}')
