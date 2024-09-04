@@ -21,6 +21,7 @@ packages:
         runtime: python:3.9
         web: false
         limits:
+          timeout: 300000
           memory: 256
         triggers:
           - name: post
