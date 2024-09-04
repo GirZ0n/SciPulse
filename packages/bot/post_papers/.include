@@ -1,4 +1,5 @@
 __main__.py
 virtualenv
 
-../../../lib/utils.py
+../../../lib/slack_utils/wrappers.py
+../../../lib/slack_utils/paper_post.py
