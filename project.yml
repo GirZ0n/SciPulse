@@ -21,9 +21,7 @@ packages:
         runtime: python:3.9
         web: false
         limits:
-          memory: 128
-          # TODO: adjust timeout
-          # timeout: 200
+          memory: 256
         triggers:
           - name: post
             sourceType: scheduler
