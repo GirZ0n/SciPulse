@@ -52,10 +52,10 @@ class PaperPost:
 
     @classmethod
     def from_slack_metadata(cls, metadata: Dict) -> "PaperPost":
-        return cls.from_json(metadata['event_payload'])
+        return cls.from_dict(metadata['event_payload'])
 
     def to_slack_metadata(self) -> Dict:
-        return {"event_type": "post_created", "event_payload": self.to_dict()}
+        return {"event_type": "post_created", "event_payload": self.to_dict(encode_json=True)}
 
     def update_state(self, action: str, username: str):
         if action not in PaperReviewState.values():
@@ -96,7 +96,7 @@ class PaperPost:
                 }
             )
         else:
-            interactive_elements.append(
+            base.append(
                 {
                     "type": "context",
                     "elements": [
@@ -115,7 +115,7 @@ class PaperPost:
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": 'Cancel'},
-                    "action_id": 'canceled',
+                    "action_id": 'cancel',
                     "confirm": {
                         "title": {"type": "plain_text", "text": "Are you sure?"},
                         "text": {"type": "plain_text", "text": "Do you want to cancel the review status?"},
