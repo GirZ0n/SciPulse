@@ -73,6 +73,7 @@ def main():
                 thread_ts=thread_ts,
                 blocks=paper_post.to_blocks(),
                 metadata=paper_post.to_slack_metadata(),
+                text=f"An error occurred while posting {paper_post.link}",
             )
 
             time.sleep(1)  # Better to sleep for 1 second to avoid spamming Slack
