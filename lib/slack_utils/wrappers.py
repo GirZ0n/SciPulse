@@ -45,16 +45,14 @@ def update_message(
     text: Optional[str] = None,
     blocks: Optional[List] = None,
     metadata: Optional[Dict] = None,
-) -> Optional[str]:
+):
     try:
-        response = client.chat_update(
+        client.chat_update(
             channel=channel,
             ts=ts,
             text=text,
             blocks=blocks,
             metadata=metadata,
         )
-        return response["message"]["ts"]
     except SlackApiError as e:
         logger.error(f"Error posting message: {e}")
-        return None
