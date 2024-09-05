@@ -1,13 +1,6 @@
-import os
-from typing import Dict
-
 from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
 from feedparser import FeedParserDict
-
-
-def check_secret_key(event: Dict) -> bool:
-    return (key := event.get('key')) and key == os.getenv('AUTH_KEY')
 
 
 def copy_channel_metadata(original: FeedParserDict, new: FeedGenerator):

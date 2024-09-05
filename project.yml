@@ -13,3 +13,22 @@ packages:
         limits:
           timeout: 200
           memory: 128
+  - name: bot
+    environment:
+      SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
+    functions:
+      - name: post_papers
+        runtime: python:3.9
+        web: false
+        limits:
+          timeout: 300000
+          memory: 256
+        triggers:
+          - name: post
+            sourceType: scheduler
+            sourceDetails:
+              cron: "0 8 * * *"
+      - name: handle_interactions
+        runtime: python:3.9
+        limits:
+          memory: 256

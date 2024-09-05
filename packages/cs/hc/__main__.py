@@ -4,7 +4,8 @@ import os
 from feedgen.feed import FeedGenerator
 import feedparser
 
-from utils import copy_channel_metadata, convert_item, check_secret_key
+from feed_utils import copy_channel_metadata, convert_item
+from security_utils import check_secret_key
 
 
 def main(event, context):
@@ -26,9 +27,10 @@ def main(event, context):
         feed.add_entry(convert_item(item, parsed_feed['channel']['published']))
 
     return {
-          'body': feed.rss_str(pretty=True).decode(),
-          'headers': {'Content-Type': 'text/xml'},
+        'body': feed.rss_str(pretty=True).decode(),
+        'headers': {'Content-Type': 'text/xml'},
     }
+
 
 if __name__ == '__main__':
     print(main({}, {'key': os.getenv('AUTH_KEY')}))
