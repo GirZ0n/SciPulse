@@ -1,26 +1,17 @@
 import json
 import logging
 import os
+from typing import Dict
+import traceback
 
 from slack_sdk import WebClient
 
 from paper_post import PaperPost
-from wrappers import update_message
-from security_utils import check_secret_key
+from wrappers import update_message, send_ephemeral_message, send_message
+from security_utils import handle_slack_request
 
 
-def main(event, context):
-    if not check_secret_key(event):
-        return {'statusCode': 401}
-
-    slack_token = os.environ["SLACK_BOT_TOKEN"]
-    client = WebClient(token=slack_token)
-
-    logging.info('Receiving interaction action')
-
-    payload = json.loads(event['payload'])
-    logging.debug(f'Payload: {event["payload"]}')
-
+def change_paper_status(client: WebClient, payload: Dict):
     channel = payload['container']['channel_id']
     logging.debug(f'Channel: {channel}')
 
@@ -51,3 +42,28 @@ def main(event, context):
         metadata=paper_post.to_slack_metadata(),
         text=f"An error occurred while posting {paper_post.link}",
     )
+
+
+def main(request):
+    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    client = WebClient(token=slack_token)
+
+    logging.info('Verifying request')
+
+    payload = handle_slack_request(request)
+    if payload is None:
+        logging.info('Request verifying failed')
+        return {'statusCode': 401}
+
+    logging.debug(f'Payload: {payload}')
+
+    try:
+        change_paper_status(client, payload)
+    except Exception:
+        send_ephemeral_message(
+            client,
+            text=traceback.format_exc(),
+            user=payload['user']['id'],
+            channel=payload['container']['channel_id'],
+            thread_ts=payload['container']['thread_ts'],
+        )

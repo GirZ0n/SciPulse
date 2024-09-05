@@ -33,7 +33,7 @@ def send_message(
         )
         return response["message"]["ts"]
     except SlackApiError as e:
-        logger.error(f"Error posting message: {e}")
+        logger.error(f"Error posting message: {repr(e)}")
         return None
 
 
@@ -55,4 +55,18 @@ def update_message(
             metadata=metadata,
         )
     except SlackApiError as e:
-        logger.error(f"Error posting message: {e}")
+        logger.error(f"Error posting message: {repr(e)}")
+
+
+def send_ephemeral_message(
+    client: WebClient,
+    *,
+    channel: str,
+    user: str,
+    text: Optional[str] = None,
+    thread_ts: Optional[str] = None,
+):
+    try:
+        client.chat_postEphemeral(channel=channel, user=user, text=text, thread_ts=thread_ts)
+    except SlackApiError as e:
+        logger.error(f"Error posting message: {repr(e)}")
