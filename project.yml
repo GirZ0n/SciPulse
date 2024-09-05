@@ -1,7 +1,7 @@
-environment:
-  AUTH_KEY: "${AUTH_KEY}"
 packages:
   - name: cs
+    environment:
+      AUTH_KEY: "${AUTH_KEY}"
     functions:
       - name: cy
         runtime: python:3.9
@@ -16,6 +16,7 @@ packages:
   - name: bot
     environment:
       SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
+      SLACK_SIGNING_SECRET: "${SLACK_SIGNING_SECRET}"
     functions:
       - name: post_papers
         runtime: python:3.9
@@ -30,5 +31,6 @@ packages:
               cron: "0 8 * * *"
       - name: handle_interactions
         runtime: python:3.9
+        web: raw
         limits:
           memory: 256
