@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 def find_channels_with_app(client: WebClient) -> List[str]:
-    channels = client.conversations_list(types=['public_channel', 'private_channel']).data['channels']
+    channels = client.conversations_list(types=['private_channel']).data['channels']
     return [channel['id'] for channel in channels if channel['is_member']]
 
 
