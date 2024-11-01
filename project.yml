@@ -1,18 +1,4 @@
 packages:
-  - name: cs
-    environment:
-      AUTH_KEY: "${AUTH_KEY}"
-    functions:
-      - name: cy
-        runtime: python:3.9
-        limits:
-          timeout: 200
-          memory: 128
-      - name: hc
-        runtime: python:3.9
-        limits:
-          timeout: 200
-          memory: 128
   - name: bot
     environment:
       SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
