@@ -1,5 +1,0 @@
-__main__.py
-virtualenv
-
-../../../lib/feed_utils.py
-../../../lib/security_utils.py

@@ -12,21 +12,31 @@ from wrappers import find_channels_with_app, send_message
 from paper_post import PaperPost
 
 
-def fetch_cs_cy_papers() -> List[FeedParserDict]:
-    parsed_feed = feedparser.parse('https://rss.arxiv.org/rss/cs.CY')
+TAG_WHITELIST = ('cs.HC', 'cs.AI', 'cs.CY', 'cs.SE', 'cs.LG', 'cs.CL', 'cs.IR', 'cs.PL')
+
+
+def _fetch_papers_from_arxiv_tag(subject: str) -> List[FeedParserDict]:
+    parsed_feed = feedparser.parse(f'https://rss.arxiv.org/rss/{subject}')
     return [item for item in parsed_feed['items'] if item['arxiv_announce_type'] not in ('replace', 'replace-cross')]
 
 
-def fetch_cs_hc_papers() -> List[FeedParserDict]:
-    parsed_feed = feedparser.parse('https://rss.arxiv.org/rss/cs.HC')
+def fetch_arxiv_papers() -> List[FeedParserDict]:
+    cs_cy_papers = _fetch_papers_from_arxiv_tag('cs.CY')
+    logging.debug(f'Fetched {len(cs_cy_papers)} CS.CY papers')
+
+    cs_hc_papers = _fetch_papers_from_arxiv_tag('cs.HC')
+    logging.debug(f'Fetched {len(cs_hc_papers)} CS.HC papers')
+
+    unfiltered_arxiv_papers = cs_cy_papers + cs_hc_papers
+    logging.debug(f'Fetched {len(unfiltered_arxiv_papers)} unfiltered papers')
+
+    unique_arxiv_papers = list({paper['link']: paper for paper in unfiltered_arxiv_papers}.values())
+    logging.debug(f'Fetched {len(unique_arxiv_papers)} unique papers')
 
     return [
-        item
-        for item in parsed_feed['items']
-        if not (
-            item['arxiv_announce_type'] in ('replace', 'replace-cross')
-            or 'cs.CY' in set(map(operator.itemgetter('term'), item['tags']))
-        )
+        paper
+        for paper in unique_arxiv_papers
+        if all(map(lambda tag: tag in TAG_WHITELIST, set(map(operator.itemgetter('term'), paper['tags']))))
     ]
 
 
@@ -34,16 +44,8 @@ def main():
     slack_token = os.environ["SLACK_BOT_TOKEN"]
     client = WebClient(token=slack_token)
 
-    logging.info('Fetching papers')
-
-    cs_cy_papers = fetch_cs_cy_papers()
-    logging.debug(f'Fetched {len(cs_cy_papers)} CS.CY papers')
-
-    cs_hc_papers = fetch_cs_hc_papers()
-    logging.debug(f'Fetched {len(cs_hc_papers)} CS.HC papers')
-
-    arxiv_papers = cs_cy_papers + cs_hc_papers
-    logging.debug(f'Fetched {len(arxiv_papers)} papers')
+    arxiv_papers = fetch_arxiv_papers()
+    logging.info(f'Fetched {arxiv_papers} arxiv papers')
 
     channels = find_channels_with_app(client)
     logging.debug(f'Found {len(channels)} channels where the app is a member')
