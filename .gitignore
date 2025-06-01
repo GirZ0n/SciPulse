@@ -102,3 +102,5 @@ package-lock.json
 
 # -----
 .env
+.env.prod
+.env.stage

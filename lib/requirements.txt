@@ -3,3 +3,5 @@ feedparser==6.0.11
 slack-sdk==3.31.0
 dataclasses-json==0.6.7
 html2text==2024.2.26
+grazie_api_gateway_client==0.2.1
+

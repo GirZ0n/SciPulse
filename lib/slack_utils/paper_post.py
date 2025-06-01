@@ -104,7 +104,7 @@ class PaperPost:
                             "type": "mrkdwn",
                             "text": (
                                 f"{self.state.to_emoji()} "
-                                f"@{self.reviewer} has {self.state.to_action_text()} this paper."
+                                f"<@{self.reviewer}> has {self.state.to_action_text()} this paper."
                             ),
                         },
                     ],

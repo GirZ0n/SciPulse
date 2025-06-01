@@ -3,12 +3,13 @@ packages:
     environment:
       SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
       SLACK_SIGNING_SECRET: "${SLACK_SIGNING_SECRET}"
+      GRAZIE_JWT_TOKEN: "${GRAZIE_JWT_TOKEN}"
     functions:
       - name: post_papers
         runtime: python:3.9
         web: false
         limits:
-          timeout: 300000
+          timeout: 900000
           memory: 256
         triggers:
           - name: post

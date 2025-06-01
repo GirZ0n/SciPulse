@@ -1,11 +1,17 @@
-To deploy:
-1. Generate `AUTH_KEY`:
+Preparation steps for deployment:
+1. Authenticate doctl for use with your DigitalOcean account:
    ```bash
-   python3 -c "import secrets; print(secrets.token_urlsafe(512))"
+   doctl auth init -t <TOKEN>
    ```
-2. Paste `AUTH_KEY` into `.env` (see [`.env.example`](.env.example) for a template)
-3. Paste `SLACK_BOT_TOKEN` into `.env` (see [`.env.example`](.env.example) for a template)
-4. Run from the project's root:
+2. Connect local serverless support to a functions namespace:
    ```bash
-   doctl serverless deploy ../arxiv-feeds --remote-build
+   doctl serverless connect
+   ```
+
+To deploy:
+1. Copy [`.env.example`](.env.example) and save it as `.env`
+2. Fill the `.env` file
+3. Run from the project's root:
+   ```bash
+   doctl serverless deploy ../SciPulse --remote-build
    ```
