@@ -4,6 +4,7 @@ packages:
       SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
       SLACK_SIGNING_SECRET: "${SLACK_SIGNING_SECRET}"
       GRAZIE_JWT_TOKEN: "${GRAZIE_JWT_TOKEN}"
+      MAKE_WEBHOOK_URL: "${MAKE_WEBHOOK_URL}"
     functions:
       - name: post_papers
         runtime: python:3.9

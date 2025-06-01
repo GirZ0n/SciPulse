@@ -1,16 +1,18 @@
+import os
 from dataclasses import dataclass
 from enum import Enum
 from textwrap import shorten
 from typing import Optional, List, Dict
 
+import requests
 from dataclasses_json import dataclass_json
 from feedparser import FeedParserDict
 from html2text import html2text as h2t
 
 
 class PaperReviewState(Enum):
-    ACCEPT = 'accept'
-    REJECT = 'reject'
+    ACCEPT = "accept"
+    REJECT = "reject"
 
     @classmethod
     def values(cls) -> List[str]:
@@ -20,16 +22,16 @@ class PaperReviewState(Enum):
         return self.value.capitalize()
 
     def to_action_text(self) -> str:
-        return self.value + 'ed'
+        return self.value + "ed"
 
     def to_emoji(self) -> str:
         if self == self.ACCEPT:
-            return ':white_check_mark:'
+            return ":white_check_mark:"
 
         if self == self.REJECT:
-            return ':x:'
+            return ":x:"
 
-        return ''
+        return ""
 
 
 @dataclass_json
@@ -44,27 +46,38 @@ class PaperPost:
     @classmethod
     def from_arxiv(cls, paper: FeedParserDict) -> "PaperPost":
         return cls(
-            title=paper['title'],
-            link=paper['link'],
+            title=paper["title"],
+            link=paper["link"],
             # TODO: make the extracting abstract better?
-            abstract=h2t(paper['description'].split(' ', 5)[5], bodywidth=0),
+            abstract=h2t(paper["description"].split(" ", 5)[5], bodywidth=0),
         )
 
     @classmethod
     def from_slack_metadata(cls, metadata: Dict) -> "PaperPost":
-        return cls.from_dict(metadata['event_payload'])
+        return cls.from_dict(metadata["event_payload"])
 
     def to_slack_metadata(self) -> Dict:
         return {"event_type": "post_created", "event_payload": self.to_dict(encode_json=True)}
 
     def update_state(self, action: str, username: str):
-        if action not in PaperReviewState.values():
+        if action in PaperReviewState.values():
+            self.state = PaperReviewState(action)
+            self.reviewer = username
+        else:
             self.state = None
             self.reviewer = None
-            return
 
-        self.state = PaperReviewState(action)
-        self.reviewer = username
+        try:
+            requests.post(
+                os.environ["MAKE_WEBHOOK_URL"],
+                json={
+                    "link": self.link,
+                    "state": None if self.state is None else self.state.value,
+                    "reviewer": self.reviewer,
+                },
+            )
+        except Exception as e:
+            pass
 
     def to_blocks(self) -> List[Dict]:
         base = [
@@ -114,8 +127,8 @@ class PaperPost:
             interactive_elements.append(
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": 'Cancel'},
-                    "action_id": 'cancel',
+                    "text": {"type": "plain_text", "text": "Cancel"},
+                    "action_id": "cancel",
                     "confirm": {
                         "title": {"type": "plain_text", "text": "Are you sure?"},
                         "text": {"type": "plain_text", "text": "Do you want to cancel the review status?"},
