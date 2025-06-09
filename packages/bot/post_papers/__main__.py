@@ -50,7 +50,7 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
     grazie_client = GrazieApiGatewayClient(
         url=GrazieApiGatewayUrls.PRODUCTION,
         grazie_jwt_token=os.environ["GRAZIE_JWT_TOKEN"],
-        auth_type=AuthType.USER,
+        auth_type=AuthType.APPLICATION,
         grazie_agent=GrazieAgent(name="openai-gpt-4o", version="dev"),
     )
 
