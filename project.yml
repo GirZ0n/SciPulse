@@ -4,21 +4,23 @@ packages:
       SLACK_BOT_TOKEN: "${SLACK_BOT_TOKEN}"
       SLACK_SIGNING_SECRET: "${SLACK_SIGNING_SECRET}"
       GRAZIE_JWT_TOKEN: "${GRAZIE_JWT_TOKEN}"
-      MAKE_WEBHOOK_URL: "${MAKE_WEBHOOK_URL}"
+      MONGODB_URI: "${MONGODB_URI}"
+      LOGFIRE_TOKEN: "${LOGFIRE_TOKEN}"
     functions:
       - name: post_papers
-        runtime: python:3.9
+        runtime: python:3.11
         web: false
         limits:
           timeout: 900000
-          memory: 256
+          memory: 512
         triggers:
           - name: post
             sourceType: scheduler
             sourceDetails:
               cron: "0 8 * * *"
       - name: handle_interactions
-        runtime: python:3.9
+        runtime: python:3.11
         web: raw
         limits:
-          memory: 256
+          timeout: 10000
+          memory: 512
