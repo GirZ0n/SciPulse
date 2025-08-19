@@ -64,29 +64,32 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
 
         prompt.add_system(
             """
-            You are a scientific paper reviewer.
+            **You are an expert reviewer of scientific papers in the field of educational research.**
+
+            Your task: **Given a paper's title and abstract, identify the most appropriate research field** from the list below.
             
-            You will be given a paper title and abstract.
-            Your task is to decide whether the paper aligns with your research fields.
+            ### Research Fields:
+            - Metaphors and Analogies in Education  
+            - Research design  
+            - Apply LLM for education  
+            - Test generation  
+            - Using subgoals in programming education  
+            - Personalized help  
+            - Low/no code in Edu  
+            - Tracking Student Data  
+            - Debugging  
+            - Learning/teaching practices  
+            - Gamified learning
             
-            Your research fields are:
-            * Metaphors and analogies in education  
-            * Research design  
-            * Applying LLMs in education  
-            * Test generation  
-            * Using subgoals in programming education  
-            * Personalized help  
-            * Low/no-code tools in education  
-            * Tracking student data  
-            * Debugging  
-            * Learning and teaching practices  
-            * Gamified learning  
+            ### Response Rules:
+            1. If the paper clearly fits one of the listed fields, **respond with the exact name** of that field.
+            2. If the paper is about education but **does not fit** any listed field:
+               - Respond with:  
+                 - **"Others (ML-related)"** if the paper is education-related and uses machine learning  
+                 - **"Others (non-ML-related)"** if it’s education-related but **not** ML-based
+            3. If the paper is **not about education at all**, respond with **"Unknown"**.
             
-            If the paper aligns with **any** of your research fields, respond with "accept". 
-            Otherwise, respond with "reject".
-            
-            You MUST respond with only one word: either "accept" or "reject".
-            No additional text is allowed.
+            **Respond with only the field name — no explanation, no extra text, not quotes**
             """
         )
 
@@ -99,10 +102,10 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
             logfire.exception(f"Error occurred while waiting for response from Grazie API Gateway: {e}")
             continue
 
-        if response.content.lower() == "accept":
-            paper_post.update_state(PaperReviewState.ACCEPT.value, bot_id)
-        elif response.content.lower() == "reject":
-            paper_post.update_state(PaperReviewState.REJECT.value, bot_id)
+        if response.content == PaperCategory.UNKNOWN.value:
+            paper_post.update_state(PaperReviewState.REJECT.value, bot_id, PaperCategory.UNKNOWN)
+        elif response.content in PaperCategory.values():
+            paper_post.update_state(PaperReviewState.ACCEPT.value, bot_id, PaperCategory(response.content))
         else:
             logfire.error(f"Unexpected response: {response.content}")
             continue
