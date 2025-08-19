@@ -3,4 +3,4 @@
 set -e
 
 virtualenv --without-pip virtualenv
-pip install -r ../../../lib/requirements.txt --target virtualenv/lib/python3.9/site-packages
+pip install -r ../../../lib/requirements.txt --target virtualenv/lib/python3.11/site-packages
