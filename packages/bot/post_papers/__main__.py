@@ -1,4 +1,3 @@
-import logging
 import operator
 import os
 import time
@@ -12,9 +11,13 @@ from grazie.api.client.gateway import GrazieApiGatewayClient, AuthType, GrazieAg
 from grazie.api.client.profiles import Profile
 from slack_sdk import WebClient
 
-from paper_post import PaperPost
-from paper_post import PaperReviewState
+from paper_post import PaperReviewState, PaperPost, PaperCategory
 from wrappers import find_channels_with_app, send_message, update_message
+
+import logfire
+
+logfire.configure(service_name="Post Papers")
+logfire.instrument_pymongo()
 
 TAG_WHITELIST = ("cs.HC", "cs.AI", "cs.CY", "cs.SE", "cs.LG", "cs.CL", "cs.IR", "cs.PL")
 
@@ -24,18 +27,19 @@ def _fetch_papers_from_arxiv_tag(subject: str) -> List[FeedParserDict]:
     return [item for item in parsed_feed["items"] if item["arxiv_announce_type"] not in ("replace", "replace-cross")]
 
 
+@logfire.instrument('Fetching papers from arxiv')
 def fetch_arxiv_papers() -> List[FeedParserDict]:
     cs_cy_papers = _fetch_papers_from_arxiv_tag("cs.CY")
-    logging.debug(f"Fetched {len(cs_cy_papers)} CS.CY papers")
+    logfire.debug(f"Fetched {len(cs_cy_papers)} CS.CY papers")
 
     cs_hc_papers = _fetch_papers_from_arxiv_tag("cs.HC")
-    logging.debug(f"Fetched {len(cs_hc_papers)} CS.HC papers")
+    logfire.debug(f"Fetched {len(cs_hc_papers)} CS.HC papers")
 
     unfiltered_arxiv_papers = cs_cy_papers + cs_hc_papers
-    logging.debug(f"Fetched {len(unfiltered_arxiv_papers)} unfiltered papers")
+    logfire.debug(f"Fetched {len(unfiltered_arxiv_papers)} unfiltered papers")
 
     unique_arxiv_papers = list({paper["link"]: paper for paper in unfiltered_arxiv_papers}.values())
-    logging.debug(f"Fetched {len(unique_arxiv_papers)} unique papers")
+    logfire.debug(f"Fetched {len(unique_arxiv_papers)} unique papers")
 
     return [
         paper
@@ -44,6 +48,7 @@ def fetch_arxiv_papers() -> List[FeedParserDict]:
     ]
 
 
+@logfire.instrument('Resolving papers using LLM')
 def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_ts: dict[str, PaperPost]):
     bot_id = slack_client.auth_test()["user_id"]
 
@@ -89,8 +94,9 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
 
         try:
             response = grazie_client.chat(prompt, Profile.OPENAI_GPT_4_O)
+            logfire.debug(f"Response: {response}")
         except Exception as e:
-            logging.error("Error occurred while waiting for response from Grazie API Gateway:", e)
+            logfire.exception(f"Error occurred while waiting for response from Grazie API Gateway: {e}")
             continue
 
         if response.content.lower() == "accept":
@@ -98,7 +104,7 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
         elif response.content.lower() == "reject":
             paper_post.update_state(PaperReviewState.REJECT.value, bot_id)
         else:
-            logging.error(f"Unexpected response: {response.content}")
+            logfire.error(f"Unexpected response: {response.content}")
             continue
 
         update_message(
@@ -111,19 +117,20 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
         )
 
 
-def main():
+@logfire.instrument('Posting papers to Slack')
+def _main():
     slack_token = os.environ["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
 
     arxiv_papers = fetch_arxiv_papers()
-    logging.info(f"Fetched {arxiv_papers} arxiv papers")
+    logfire.info(f"Fetched {len(arxiv_papers)} arxiv papers")
 
     channels = find_channels_with_app(slack_client)
-    logging.debug(f"Found {len(channels)} channels where the app is a member")
+    logfire.debug(f"Found {len(channels)} channels where the app is a member")
 
     paper_posts_ts = {}
     for channel in channels:
-        logging.debug(f"Posting to {channel}")
+        logfire.debug(f"Posting to {channel}")
 
         if not arxiv_papers:
             send_message(
@@ -135,12 +142,12 @@ def main():
             continue
 
         thread_ts = send_message(slack_client, channel=channel, text=f'Papers for {time.strftime("%d-%m-%Y")}')
-        logging.debug(f"TS: {thread_ts}")
+        logfire.debug(f"TS: {thread_ts}")
 
         for arxiv_paper in arxiv_papers:
             paper_post = PaperPost.from_arxiv(arxiv_paper)
 
-            logging.debug(f"Posting: {paper_post.link}")
+            logfire.debug(f"Posting: {paper_post.link}")
 
             paper_post_ts = send_message(
                 slack_client,
@@ -155,11 +162,16 @@ def main():
 
             time.sleep(1)  # Better to sleep for 1 second to avoid spamming Slack
 
-        logging.info(f"Posting to {channel} completed")
+        logfire.info(f"Posting to {channel} completed")
 
-        logging.info(f"Automatic review started in {channel}")
+        logfire.info(f"Automatic review started in {channel}")
         resolve_papers_using_llm(slack_client, channel, paper_posts_ts)
-        logging.info(f"Automatic review completed in {channel}")
+        logfire.info(f"Automatic review completed in {channel}")
+
+
+# DigitalOcean can't find a main function wrapped in decorator
+def main():
+    _main()
 
 
 if __name__ == "__main__":
