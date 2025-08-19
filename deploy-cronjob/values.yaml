@@ -1,0 +1,29 @@
+schedule: "0 * * * *"
+
+customEnv:
+  - name: SLACK_BOT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: slack-secret
+        key: SLACK_BOT_TOKEN
+  - name: SLACK_SIGNING_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: slack-secret
+        key: SLACK_SIGNING_SECRET
+  - name: GRAZIE_AUTH_TYPE
+    valueFrom:
+      secretKeyRef:
+        name: grazie-secret
+        key: GRAZIE_AUTH_TYPE
+  - name: GRAZIE_JWT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: grazie-secret
+        key: GRAZIE_JWT_TOKEN
+  - name: DB_URL
+    valueFrom:
+      secretKeyRef:
+        name: sci-pulse-db
+        key: DB_URL
+
