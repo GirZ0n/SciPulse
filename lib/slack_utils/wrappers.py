@@ -1,17 +1,17 @@
-import logging
 from typing import List, Optional, Dict
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-logger = logging.getLogger(__name__)
+import logfire
 
-
+@logfire.instrument('Finding channels with app')
 def find_channels_with_app(client: WebClient) -> List[str]:
     channels = client.conversations_list(types=['private_channel']).data['channels']
     return [channel['id'] for channel in channels if channel['is_member']]
 
 
+@logfire.instrument('Sending message')
 def send_message(
     client: WebClient,
     *,
@@ -33,10 +33,11 @@ def send_message(
         )
         return response["message"]["ts"]
     except SlackApiError as e:
-        logger.error(f"Error posting message: {repr(e)}")
+        logfire.exception(f"Error posting message: {e}")
         return None
 
 
+@logfire.instrument('Updating message')
 def update_message(
     client: WebClient,
     *,
@@ -55,9 +56,10 @@ def update_message(
             metadata=metadata,
         )
     except SlackApiError as e:
-        logger.error(f"Error posting message: {repr(e)}")
+        logfire.error(f"Error posting message: {e}")
 
 
+@logfire.instrument('Sending ephemeral message')
 def send_ephemeral_message(
     client: WebClient,
     *,
@@ -69,4 +71,4 @@ def send_ephemeral_message(
     try:
         client.chat_postEphemeral(channel=channel, user=user, text=text, thread_ts=thread_ts)
     except SlackApiError as e:
-        logger.error(f"Error posting message: {repr(e)}")
+        logfire.exception(f"Error posting message: {e}")

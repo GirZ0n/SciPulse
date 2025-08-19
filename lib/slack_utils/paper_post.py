@@ -1,13 +1,16 @@
 import os
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from textwrap import shorten
 from typing import Optional, List, Dict
 
-import requests
 from dataclasses_json import dataclass_json
 from feedparser import FeedParserDict
 from html2text import html2text as h2t
+from pymongo import MongoClient
+
+import logfire
 
 
 class PaperReviewState(Enum):
@@ -34,6 +37,27 @@ class PaperReviewState(Enum):
         return ""
 
 
+class PaperCategory(Enum):
+    METAPHORS = "Metaphors and Analogies in Education"
+    RESEARCH_DESIGN = "Research design"
+    APPLY_LLM = "Apply LLM for education"
+    TEST_GENERATION = "Test generation"
+    SUBGOALS = "Using subgoals in programming education"
+    PERSONALIZED_HELP = "Personalized help"
+    LOW_NO_CODE = "Low/no code in Edu"
+    TRACKING_STUDENT_DATA = "Tracking Student Data"
+    DEBUGGING = "Debugging"
+    LEARNING_AND_TEACHING = "Learning/teaching practices"
+    GAMIFIED_LEARNING = "Gamified learning"
+    OTHER_ML_RELATED = "Others (ML-related)"
+    OTHER_NON_ML_RELATED = "Others (non-ML-related)"
+    UNKNOWN = "Unknown"
+
+    @classmethod
+    def values(cls) -> List[str]:
+        return [member.value for member in cls]
+
+
 @dataclass_json
 @dataclass
 class PaperPost:
@@ -42,6 +66,10 @@ class PaperPost:
     abstract: str
     state: Optional[PaperReviewState] = None
     reviewer: Optional[str] = None
+
+    @property
+    def _id(self) -> str:
+        return self.link.split('/')[-1]
 
     @classmethod
     def from_arxiv(cls, paper: FeedParserDict) -> "PaperPost":
@@ -59,7 +87,8 @@ class PaperPost:
     def to_slack_metadata(self) -> Dict:
         return {"event_type": "post_created", "event_payload": self.to_dict(encode_json=True)}
 
-    def update_state(self, action: str, username: str):
+    @logfire.instrument
+    def update_state(self, action: str, username: str, category: Optional[PaperCategory] = None):
         if action in PaperReviewState.values():
             self.state = PaperReviewState(action)
             self.reviewer = username
@@ -68,16 +97,39 @@ class PaperPost:
             self.reviewer = None
 
         try:
-            requests.post(
-                os.environ["MAKE_WEBHOOK_URL"],
-                json={
-                    "link": self.link,
-                    "state": None if self.state is None else self.state.value,
-                    "reviewer": self.reviewer,
-                },
-            )
+            client = MongoClient(os.environ["MONGODB_URI"])
+            collection = client["SciPulse"]["paper-state"]
+
+            new_category = None if category is None else category.value
+            new_state = None if self.state is None else self.state.value
+            new_date = datetime.now()
+
+            doc = collection.find_one({"_id": self._id})
+            if doc:
+                collection.update_one(
+                    {"_id": self._id},
+                    {
+                        "$set": {
+                            "state": new_state,
+                            "reviewer": self.reviewer,
+                            "date": new_date,
+                            "category": new_category if doc['category'] is None else doc['category'],
+                        }
+                    },
+
+                )
+            else:
+                collection.insert_one(
+                    {
+                        "_id": self._id,
+                        "state": new_state,
+                        "reviewer": self.reviewer,
+                        "category": new_category,
+                        "date": new_date,
+                    }
+                )
         except Exception as e:
-            pass
+            logfire.exception(f'Error updating paper state to MongoDB: {repr(e)}')
 
     def to_blocks(self) -> List[Dict]:
         base = [
