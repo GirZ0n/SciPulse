@@ -11,15 +11,26 @@ from grazie.api.client.gateway import GrazieApiGatewayClient, AuthType, GrazieAg
 from grazie.api.client.profiles import Profile
 from slack_sdk import WebClient
 
-from paper_post import PaperReviewState, PaperPost, PaperCategory
-from wrappers import find_channels_with_app, send_message, update_message
+from lib.slack_utils.paper_post import PaperReviewState, PaperPost, PaperCategory
+from lib.slack_utils.wrappers import find_channels_with_app, send_message, update_message
 
-import logfire
+import logging
 
-logfire.configure(service_name="Post Papers")
-logfire.instrument_pymongo()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("post_papers")
 
 TAG_WHITELIST = ("cs.HC", "cs.AI", "cs.CY", "cs.SE", "cs.LG", "cs.CL", "cs.IR", "cs.PL")
+
+def _get_grazie_auth_type() -> AuthType:
+    match os.environ["GRAZIE_AUTH_TYPE"]:
+        case "SERVICE":
+            return AuthType.SERVICE
+        case "APPLICATION":
+            return AuthType.APPLICATION
+        case "USER":
+            return AuthType.USER
+        case _:
+            raise ValueError(f"Invalid GRAZIE_AUTH_TYPE: {os.environ['GRAZIE_AUTH_TYPE']}")
 
 
 def _fetch_papers_from_arxiv_tag(subject: str) -> List[FeedParserDict]:
@@ -27,19 +38,18 @@ def _fetch_papers_from_arxiv_tag(subject: str) -> List[FeedParserDict]:
     return [item for item in parsed_feed["items"] if item["arxiv_announce_type"] not in ("replace", "replace-cross")]
 
 
-@logfire.instrument('Fetching papers from arxiv')
 def fetch_arxiv_papers() -> List[FeedParserDict]:
     cs_cy_papers = _fetch_papers_from_arxiv_tag("cs.CY")
-    logfire.debug(f"Fetched {len(cs_cy_papers)} CS.CY papers")
+    logger.debug(f"Fetched {len(cs_cy_papers)} CS.CY papers")
 
     cs_hc_papers = _fetch_papers_from_arxiv_tag("cs.HC")
-    logfire.debug(f"Fetched {len(cs_hc_papers)} CS.HC papers")
+    logger.debug(f"Fetched {len(cs_hc_papers)} CS.HC papers")
 
     unfiltered_arxiv_papers = cs_cy_papers + cs_hc_papers
-    logfire.debug(f"Fetched {len(unfiltered_arxiv_papers)} unfiltered papers")
+    logger.debug(f"Fetched {len(unfiltered_arxiv_papers)} unfiltered papers")
 
     unique_arxiv_papers = list({paper["link"]: paper for paper in unfiltered_arxiv_papers}.values())
-    logfire.debug(f"Fetched {len(unique_arxiv_papers)} unique papers")
+    logger.debug(f"Fetched {len(unique_arxiv_papers)} unique papers")
 
     return [
         paper
@@ -47,15 +57,13 @@ def fetch_arxiv_papers() -> List[FeedParserDict]:
         if all(map(lambda tag: tag in TAG_WHITELIST, set(map(operator.itemgetter("term"), paper["tags"]))))
     ]
 
-
-@logfire.instrument('Resolving papers using LLM')
 def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_ts: dict[str, PaperPost]):
     bot_id = slack_client.auth_test()["user_id"]
 
     grazie_client = GrazieApiGatewayClient(
         url=GrazieApiGatewayUrls.PRODUCTION,
         grazie_jwt_token=os.environ["GRAZIE_JWT_TOKEN"],
-        auth_type=AuthType.APPLICATION,
+        auth_type=_get_grazie_auth_type(),
         grazie_agent=GrazieAgent(name="openai-gpt-4o", version="dev"),
     )
 
@@ -97,9 +105,9 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
 
         try:
             response = grazie_client.chat(prompt, Profile.OPENAI_GPT_4_O)
-            logfire.debug(f"Response: {response}")
+            logger.debug(f"Response: {response}")
         except Exception as e:
-            logfire.exception(f"Error occurred while waiting for response from Grazie API Gateway: {e}")
+            logger.exception(f"Error occurred while waiting for response from Grazie API Gateway: {e}")
             continue
 
         if response.content == PaperCategory.UNKNOWN.value:
@@ -107,7 +115,7 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
         elif response.content in PaperCategory.values():
             paper_post.update_state(PaperReviewState.ACCEPT.value, bot_id, PaperCategory(response.content))
         else:
-            logfire.error(f"Unexpected response: {response.content}")
+            logger.error(f"Unexpected response: {response.content}")
             continue
 
         update_message(
@@ -120,20 +128,19 @@ def resolve_papers_using_llm(slack_client: WebClient, channel: str, paper_posts_
         )
 
 
-@logfire.instrument('Posting papers to Slack')
-def _main():
+def main():
     slack_token = os.environ["SLACK_BOT_TOKEN"]
     slack_client = WebClient(token=slack_token)
 
     arxiv_papers = fetch_arxiv_papers()
-    logfire.info(f"Fetched {len(arxiv_papers)} arxiv papers")
+    logger.info(f"Fetched {len(arxiv_papers)} arxiv papers")
 
     channels = find_channels_with_app(slack_client)
-    logfire.debug(f"Found {len(channels)} channels where the app is a member")
+    logger.debug(f"Found {len(channels)} channels where the app is a member")
 
     paper_posts_ts = {}
     for channel in channels:
-        logfire.debug(f"Posting to {channel}")
+        logger.debug(f"Posting to {channel}")
 
         if not arxiv_papers:
             send_message(
@@ -145,12 +152,12 @@ def _main():
             continue
 
         thread_ts = send_message(slack_client, channel=channel, text=f'Papers for {time.strftime("%d-%m-%Y")}')
-        logfire.debug(f"TS: {thread_ts}")
+        logger.debug(f"TS: {thread_ts}")
 
         for arxiv_paper in arxiv_papers:
             paper_post = PaperPost.from_arxiv(arxiv_paper)
 
-            logfire.debug(f"Posting: {paper_post.link}")
+            logger.debug(f"Posting: {paper_post.link}")
 
             paper_post_ts = send_message(
                 slack_client,
@@ -165,16 +172,11 @@ def _main():
 
             time.sleep(1)  # Better to sleep for 1 second to avoid spamming Slack
 
-        logfire.info(f"Posting to {channel} completed")
+        logger.info(f"Posting to {channel} completed")
 
-        logfire.info(f"Automatic review started in {channel}")
+        logger.info(f"Automatic review started in {channel}")
         resolve_papers_using_llm(slack_client, channel, paper_posts_ts)
-        logfire.info(f"Automatic review completed in {channel}")
-
-
-# DigitalOcean can't find a main function wrapped in decorator
-def main():
-    _main()
+        logger.info(f"Automatic review completed in {channel}")
 
 
 if __name__ == "__main__":

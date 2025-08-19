@@ -4,6 +4,5 @@ slack-sdk==3.31.0
 dataclasses-json==0.6.7
 html2text==2024.2.26
 grazie_api_gateway_client==0.2.1
-pymongo==4.13.2
+psycopg[binary]==3.2.1
 logfire==4.0.0
-opentelemetry-instrumentation-pymongo==0.56b0

@@ -8,9 +8,11 @@ from typing import Optional, List, Dict
 from dataclasses_json import dataclass_json
 from feedparser import FeedParserDict
 from html2text import html2text as h2t
-from pymongo import MongoClient
+import psycopg
 
-import logfire
+import logging
+
+logger = logging.getLogger("paper_post")
 
 
 class PaperReviewState(Enum):
@@ -87,7 +89,6 @@ class PaperPost:
     def to_slack_metadata(self) -> Dict:
         return {"event_type": "post_created", "event_payload": self.to_dict(encode_json=True)}
 
-    @logfire.instrument
     def update_state(self, action: str, username: str, category: Optional[PaperCategory] = None):
         if action in PaperReviewState.values():
             self.state = PaperReviewState(action)
@@ -97,39 +98,50 @@ class PaperPost:
             self.reviewer = None
 
         try:
-            client = MongoClient(os.environ["MONGODB_URI"])
-            collection = client["SciPulse"]["paper-state"]
+            dsn = os.environ.get("DB_URL")
+            if not dsn:
+                raise RuntimeError("DB_URL environment variable is required")
 
-            new_category = None if category is None else category.value
-            new_state = None if self.state is None else self.state.value
-            new_date = datetime.now()
+            with psycopg.connect(dsn) as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS paper_state (
+                            id TEXT PRIMARY KEY,
+                            state TEXT NULL,
+                            reviewer TEXT NULL,
+                            category TEXT NULL,
+                            date TIMESTAMP NOT NULL
+                        );
+                        """
+                    )
 
-            doc = collection.find_one({"_id": self._id})
-            if doc:
-                collection.update_one(
-                    {"_id": self._id},
-                    {
-                        "$set": {
-                            "state": new_state,
-                            "reviewer": self.reviewer,
-                            "date": new_date,
-                            "category": new_category if doc['category'] is None else doc['category'],
-                        }
-                    },
+                    new_category = None if category is None else category.value
+                    new_state = None if self.state is None else self.state.value
+                    new_date = datetime.now()
 
-                )
-            else:
-                collection.insert_one(
-                    {
-                        "_id": self._id,
-                        "state": new_state,
-                        "reviewer": self.reviewer,
-                        "category": new_category,
-                        "date": new_date,
-                    }
-                )
+                    cur.execute("SELECT category FROM paper_state WHERE id = %s", (self._id,))
+                    row = cur.fetchone()
+                    effective_category = new_category
+                    if row is not None and row[0] is not None:
+                        effective_category = row[0]
+
+                    cur.execute(
+                        """
+                        INSERT INTO paper_state (id, state, reviewer, category, date)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (id)
+                        DO UPDATE SET
+                            state = EXCLUDED.state,
+                            reviewer = EXCLUDED.reviewer,
+                            category = EXCLUDED.category,
+                            date = EXCLUDED.date
+                        """,
+                        (self._id, new_state, self.reviewer, effective_category, new_date),
+                    )
+                conn.commit()
         except Exception as e:
-            logfire.exception(f'Error updating paper state to MongoDB: {repr(e)}')
+            logger.exception(f'Error updating paper state to Postgres: {repr(e)}')
 
     def to_blocks(self) -> List[Dict]:
         base = [
