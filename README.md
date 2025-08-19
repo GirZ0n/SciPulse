@@ -1,17 +1,12 @@
-Preparation steps for deployment:
-1. Authenticate doctl for use with your DigitalOcean account:
+Run with Docker Compose:
+1. Copy .env.example to .env
+2. Fill the .env file with required values
+3. From the project root, start the services:
    ```bash
-   doctl auth init -t <TOKEN>
-   ```
-2. Connect local serverless support to a functions namespace:
-   ```bash
-   doctl serverless connect
+   docker compose up --build
    ```
 
-To deploy:
-1. Copy [`.env.example`](.env.example) and save it as `.env`
-2. Fill the `.env` file
-3. Run from the project's root:
-   ```bash
-   doctl serverless deploy ../SciPulse --remote-build
-   ```
+To stop:
+```bash
+docker compose down
+```
